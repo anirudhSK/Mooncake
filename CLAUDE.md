@@ -192,3 +192,43 @@ total** (pooling ~20 nodes' DRAM) to approach the theoretical ceiling. So even i
 Figure 1 experiment, the 16-node global cache of ~48M tokens operates below its
 theoretical maximum — the cache accumulates blocks during the run but never fully
 saturates.
+
+# Cache Hierarchy Setup for the FAST 2025 Paper
+
+## Storage Tiers in the Architecture
+
+Mooncake Store is designed around a three-tier hierarchy (as shown in Figure 2):
+
+1. **GPU VRAM (HBM)** — The "hot" working KV cache used during active inference
+   ("Paged KVCache" in Figure 2). Holds only the working set for requests currently
+   being processed.
+2. **CPU DRAM** — The primary persistent cache tier ("Distributed KVCache Pool" in
+   Figure 2). All KVCache in Mooncake Store is stored as paged blocks here, spread
+   across nodes and accessed via RDMA.
+3. **SSD** — Listed as an additional overflow tier in the architecture diagram
+   (`CPU/DRAM/SSD`).
+
+## What Is Actually Used in the Experiments
+
+**SSD is not used in any experiment in the paper.** The evaluation setup (Section 5.1)
+only describes GPU VRAM and CPU DRAM. All cache capacity figures in Section 5.3 are
+expressed purely in terms of DRAM:
+
+> *"reserving approximately 1 TB of DRAM for local caching, this setup only supports
+> storage for about 3 million tokens"* (Section 5.3.1)
+
+Figure 9, Figure 10, Figure 11, and the transfer benchmarks in Figure 12 are all
+framed around DRAM capacity and DRAM-to-DRAM RDMA transfers. SSD appears only as a
+future/optional overflow tier in the architecture design — it plays no role in the
+reported results.
+
+## KVCache Movement During Inference (Figure 3)
+
+The data path for a single request is:
+
+| Step | Action |
+|---|---|
+| s1: KVCache Reuse | Prefix KVCache loaded from remote **CPU DRAM → GPU HBM** on prefill node |
+| s2: Incremental Prefill | Newly generated KVCache stored from **GPU HBM → CPU DRAM** on prefill node |
+| s3: KVCache Transfer | KVCache streamed layer-by-layer over **RDMA** from prefill node CPU DRAM → decode node CPU DRAM |
+| s4: Decoding | KVCache async-loaded from **CPU DRAM → GPU HBM** on decode node before joining batch |
