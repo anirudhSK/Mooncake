@@ -232,3 +232,44 @@ The data path for a single request is:
 | s2: Incremental Prefill | Newly generated KVCache stored from **GPU HBM → CPU DRAM** on prefill node |
 | s3: KVCache Transfer | KVCache streamed layer-by-layer over **RDMA** from prefill node CPU DRAM → decode node CPU DRAM |
 | s4: Decoding | KVCache async-loaded from **CPU DRAM → GPU HBM** on decode node before joining batch |
+
+# What Is mooncake_master?
+
+`mooncake_master` is the **central coordinator (control plane)** for the Mooncake
+distributed KV cache store. It is a C++ binary (built from `mooncake-store/src/`)
+and must be started before any vLLM prefill/decode instances, since those instances
+register their DRAM segments with it at startup.
+
+## Responsibilities
+
+- **Memory segment tracking** — maintains a registry of which nodes have registered
+  DRAM segments and how much free space each has
+- **Replica placement** — decides where KV cache blocks are stored across the cluster
+  (`random` or `free_ratio_first` allocation strategy)
+- **Eviction policy** — enforces high-watermark thresholds and evicts soft-pinned
+  objects when memory pressure is high
+- **Lease/TTL management** — tracks KV object lifetimes via
+  `--default_kv_lease_ttl` (default 5 s) and `--default_kv_soft_pin_ttl` (default 30 min)
+- **Task management** — queues and retries async RDMA transfer tasks across nodes
+- **Metrics endpoint** — exposes `/metrics` over HTTP (default port 9003)
+- **Optional embedded HTTP metadata server** — serves cluster topology to the
+  transfer engine (port 8080, off by default)
+- **Optional HA** — can use etcd for high-availability snapshotting and restore
+
+## Key Flags
+
+| Flag | Default | Purpose |
+|---|---|---|
+| `--rpc_port` | 50051 | RPC listen port |
+| `--metrics_port` | 9003 | HTTP metrics port |
+| `--enable_http_metadata_server` | false | Embedded metadata server for transfer engine |
+| `--http_metadata_server_port` | 8080 | Metadata server port |
+| `--allocation_strategy` | `random` | Replica placement strategy |
+| `--eviction_high_watermark_ratio` | 0.95 | Usage ratio that triggers eviction |
+| `--enable_ha` | false | Enable HA via etcd |
+
+## Python Entry Point
+
+The `mooncake_master` command installed by the Python wheel
+(`mooncake-wheel/mooncake/cli.py`) is a thin wrapper that locates and `exec`s the
+compiled C++ binary with all arguments passed through.
