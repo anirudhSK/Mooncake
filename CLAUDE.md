@@ -58,7 +58,7 @@ Edit `benchmarks/xypd_benchmarks/vllm-benchmarks/mooncake.config` with your
 cluster's RDMA device names and etcd endpoint. Auto-generate the cluster topology:
 
 ```bash
-python3 scripts/generate_cluster_topology.py --hosts node1,node2,node3,node4
+python3 scripts/generate_cluster_topology.py --dst-host node1
 ```
 
 ### Step 3: Launch the system
