@@ -43,7 +43,7 @@ LLaMA3-70B needs ~140 GB VRAM. With 4 nodes:
 
 ```bash
 pip install vllm==0.5.1
-pip install mooncake          # or build from source in this repo
+pip install mooncake-transfer-engine   # or build from source in this repo (NOT "pip install mooncake" — that is a different unrelated PyPI package)
 pip install quart httpx aiohttp datasets
 
 # Start etcd (required by Mooncake metadata server)
