@@ -47,7 +47,7 @@ pip install mooncake-transfer-engine   # or build from source in this repo (NOT 
 pip install quart httpx aiohttp datasets
 
 # Start etcd (required by Mooncake metadata server)
-docker run -d -p 2379:2379 gcr.io/etcd-development/etcd \
+sudo docker run -d -p 2379:2379 gcr.io/etcd-development/etcd:v3.5.21 \
   etcd --listen-client-urls http://0.0.0.0:2379 \
        --advertise-client-urls http://0.0.0.0:2379
 ```
